@@ -1,0 +1,1 @@
+using System.Windows; namespace PixelStitch { public partial class App : Application { } }
