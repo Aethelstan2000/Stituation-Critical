@@ -1,7 +1,8 @@
-<Window x:Class="PixelStitch.MainWindow"
+    <Window x:Class="PixelStitch.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:PixelStitch"
+            xmlns:xctk="http://schemas.xceed.com/wpf/xaml/toolkit"
         x:Name="Root"
         Title="PixelStitch - Pixel Art &amp; DMC Palette" Height="800" Width="1200">
 
@@ -55,13 +56,33 @@
 
                             <TextBlock Text="W:" Grid.Row="0" Grid.Column="0"
                  VerticalAlignment="Center" Margin="0,0,4,0"/>
-                            <TextBox Name="WidthBox" Grid.Row="0" Grid.Column="1"
-               Width="50" Text="64"/>
+                            <xctk:IntegerUpDown
+                                Name="WidthBox"
+                                Grid.Row="0"
+                                Grid.Column="1"
+                                Width="60"
+                                Minimum="1"
+                                Maximum="1024"
+                                Value="64"
+                                Increment="1"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center" />   
+
 
                             <TextBlock Text="H:" Grid.Row="1" Grid.Column="0"
-                 VerticalAlignment="Center" Margin="0,0,4,0"/>
-                            <TextBox Name="HeightBox" Grid.Row="1" Grid.Column="1"
-               Width="50" Text="64"/>
+                                VerticalAlignment="Center" Margin="0,0,4,0"/>
+                            <xctk:IntegerUpDown
+                                Name="HeightBox"
+                                Grid.Row="1"
+                                Grid.Column="1"
+                                Width="60"
+                                Minimum="1"
+                                Maximum="1024"
+                                Value="64"
+                                Increment="1"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center" />
+
                         </Grid>
 
                         <!-- Anchor picker -->
@@ -147,6 +168,17 @@
                 <Separator/>
                 <Button Click="ReassignSymbols_Click">Reassign Symbols</Button>
                 <Button Click="TestBuildPattern_Click">Test Pattern Export</Button>
+                <TextBlock VerticalAlignment="Center" Margin="0,0,4,0">Text="Exported Cell Size (mm):"</TextBlock>
+                <xctk:DoubleUpDown
+                                Name="PatternCellSize"
+                                Width="60"
+
+                                Minimum="1"
+                                Maximum="10"
+                                Value="2.5"
+                                Increment="0.25"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center" />
             </ToolBar>
         </ToolBarTray>
 

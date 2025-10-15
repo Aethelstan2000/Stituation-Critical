@@ -43,7 +43,9 @@ namespace PixelStitch
         private Point _panStart;
         private double _panStartH, _panStartV;
         private PixelCanvas.Anchor _resizeAnchor = PixelCanvas.Anchor.Center;
-
+        //private string outputPath = "PatternTest.pdf";
+        private string docTitle = "New";
+        private string DefaultDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
         public List<string> SymbolChoices { get; } = new List<string>
         {
             // Common geometric shapes
@@ -218,20 +220,54 @@ namespace PixelStitch
             var pattern = PatternBuilder.FromCanvas(Canvas, _active);
 
             // temporary symbol assignment
+            /*
             string symbols = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
             int i = 0;
             foreach (var col in _active)
                 pattern.SymbolMap[col.Code] = symbols[i++ % symbols.Length];
-
+            */
             var opts = new PatternExportOptions
             {
                 IncludeColourGrid = true,
                 IncludeSymbolGrid = true,
-                OutputPath = "PatternTest.pdf"
+                IncludeStitchTypeGrid = false,
+                CellSizemm = PatternCellSize.Value ?? 2.5,
+                MarginCm = 1.5,
+                HeaderCm = 1.2,
+                OverlapCells = 1,
+                ShowRulers = true,
+                OutputPath = docTitle
             };
 
-            PatternExporter.ToPdf(pattern, opts);
-            MessageBox.Show("Pattern exported to PatternTest.pdf");
+            // Let the user pick a save path
+            var dlg = new SaveFileDialog
+            {
+                Title = "Export Pattern",
+                Filter = "PDF files (*.pdf)|*.pdf",
+                FileName = docTitle+".pdf",
+                //InitialDirectory = DefaultDirectory,
+                AddExtension = true,
+                OverwritePrompt = true
+            };
+
+            if (dlg.ShowDialog(this) != true)
+                return; // user cancelled
+
+            opts.OutputPath = dlg.FileName;
+            DefaultDirectory = dlg.FileName;
+            try
+            {
+                PatternExporter.ToPdf(pattern, opts);
+                MessageBox.Show($"Exported:\n{opts.OutputPath}", "Export Complete",
+                                MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Export failed:\n{ex.Message}", "Error",
+                                MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            //PatternExporter.ToPdf(pattern, opts);
+            //MessageBox.Show("Pattern exported to PatternTest.pdf");
         }
 
 
@@ -317,7 +353,7 @@ namespace PixelStitch
 
             if (choice == MessageBoxResult.Cancel) return false;
             if (choice == MessageBoxResult.No) return true;
-            if (choice == MessageBoxResult.Yes) return SaveProjectInteractive();
+            if (choice == MessageBoxResult.Yes) SaveProject();
 
             return false;
         }
@@ -597,9 +633,38 @@ namespace PixelStitch
 
         private void Canvas_ColorPicked(System.Windows.Media.Color color)
         {
-            ActiveLabel.Text = $"Picked RGB ({color.R},{color.G},{color.B})";
-            (FindName("ActiveBrush") as SolidColorBrush)!.Color = color;
+            // Try to find the picked colour first in the Active Palette, then in the full DMC list
+            var match = _active.FirstOrDefault(a => a.Color == color)
+                     ?? _allDmc.FirstOrDefault(a => a.Color == color);
+
+            if (match != null)
+            {
+                SetActiveColour(match);           // update UI + canvas paint colour
+                ActiveList.SelectedItem = match;  // highlight in Active Palette list
+                ActiveList.ScrollIntoView(match);
+            }
+            else
+            {
+                // Not an exact DMC shade – still use it
+                Canvas.SetActiveColor(color);
+                (FindName("ActiveBrush") as SolidColorBrush)!.Color = color;
+                ActiveLabel.Text = $"RGB {color.R},{color.G},{color.B}";
+            }
         }
+
+
+        private void SetActiveColour(DmcColor dmc)
+        {
+            _activeColour = dmc;
+
+            // Update the canvas paint colour used for new strokes
+            Canvas.SetActiveColor(dmc.Color);
+
+            // Update the swatch + label
+            (FindName("ActiveBrush") as SolidColorBrush)!.Color = dmc.Color;
+            ActiveLabel.Text = $"DMC {dmc.Code} — {dmc.Name}";
+        }
+
 
         private void Undo_Executed(object sender, System.Windows.Input.ExecutedRoutedEventArgs e) => Canvas.Undo();
         private void Redo_Executed(object sender, System.Windows.Input.ExecutedRoutedEventArgs e) => Canvas.Redo();
@@ -633,7 +698,11 @@ namespace PixelStitch
 
         private void SaveProject_Click(object sender, RoutedEventArgs e)
         {
-            var dlg = new SaveFileDialog { Title = "Save PixelStitch Project", Filter = "PixelStitch Project (*.pxsproj)|*.pxsproj", FileName = "project.pxsproj" };
+            SaveProject();
+        }
+        private void SaveProject()
+        {
+            var dlg = new SaveFileDialog { Title = "Save PixelStitch Project", Filter = "PixelStitch Project (*.pxsproj)|*.pxsproj", FileName = docTitle + ".pxsproj" };
             if (dlg.ShowDialog() != true) return;
             try
             {
@@ -665,10 +734,11 @@ namespace PixelStitch
                 var json = System.Text.Json.JsonSerializer.Serialize(proj, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
                 File.WriteAllText(dlg.FileName, json);
                 MessageBox.Show("Project saved.");
+                docTitle = Path.GetFileNameWithoutExtension(dlg.FileName);
+                Title = docTitle;
             }
             catch (Exception ex) { MessageBox.Show("Failed to save project: " + ex.Message); }
         }
-
         private void LoadProject_Click(object sender, RoutedEventArgs e)
         {
             var dlg = new OpenFileDialog { Title = "Open PixelStitch Project", Filter = "PixelStitch Project (*.pxsproj)|*.pxsproj" };
@@ -717,6 +787,8 @@ namespace PixelStitch
                 ActiveList.Items.Refresh();
 
                 MessageBox.Show("Project loaded.");
+                docTitle = Path.GetFileNameWithoutExtension(dlg.FileName);
+                Title = docTitle;
             }
             catch (Exception ex) { MessageBox.Show("Failed to load project: " + ex.Message); }
         }

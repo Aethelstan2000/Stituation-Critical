@@ -8,6 +8,7 @@ namespace PixelStitch.Models
         public int Height { get; set; }
         public List<Stitch> Stitches { get; set; } = new List<Stitch>();
         public List<DmcColor> Palette { get; set; } = new(); // active palette snapshot used to build the pattern
+        public Stitch[,] StitchGrid { get; set; }
 
         // later additions:
         // public List<Backstitch> Backstitches { get; set; }

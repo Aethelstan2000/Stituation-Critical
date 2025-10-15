@@ -1,3 +1,4 @@
+using PdfSharpCore.Drawing;
 using System;
 using System.Collections.Generic;
 using System.Windows;
@@ -178,7 +179,12 @@ namespace PixelStitch
             InvalidateVisual();
         }
 
-        public void SetActiveColor(Color c) => _active = c;
+        public void SetActiveColor(Color c)
+        {
+            _active = c;
+            InvalidateVisual();
+        }
+
 
         public void SetZoom(int zoom)
         {
@@ -313,19 +319,38 @@ namespace PixelStitch
                 var p = e.GetPosition(this);
                 int x = (int)(p.X / _zoom);
                 int y = (int)(p.Y / _zoom);
-                if (x >= 0 && y >= 0 && x < _w && y < _h) { var c = _pixels[x, y]; ColorPicked?.Invoke(c); }
+                if (x >= 0 && y >= 0 && x < _w && y < _h)
+                {
+                    var c = _pixels[x, y];
+                    ColorPicked?.Invoke(c);
+                }
+                // Do NOT paint; cancel any stroke & release capture
+                _mouseDown = false;
+                ReleaseMouseCapture();
+                return;
             }
-            else { BeginStroke(); RecordAndPaintAt(e.GetPosition(this), erase); }
+            else
+            {
+                BeginStroke();
+                RecordAndPaintAt(e.GetPosition(this), erase);
+            }
+
         }
 
         private void OnMouseMove(object? sender, MouseEventArgs e)
         {
-            if (_mouseDown && (e.LeftButton == MouseButtonState.Pressed || e.RightButton == MouseButtonState.Pressed))
+            if (!_mouseDown) return;
+
+            bool leftPaint = e.LeftButton == MouseButtonState.Pressed;
+            bool rightErase = e.RightButton == MouseButtonState.Pressed && Keyboard.Modifiers == ModifierKeys.Shift;
+
+            if (leftPaint || rightErase)
             {
-                bool erase = e.RightButton == MouseButtonState.Pressed && Keyboard.Modifiers == ModifierKeys.Shift;
+                bool erase = rightErase;
                 RecordAndPaintAt(e.GetPosition(this), erase);
             }
         }
+
 
         private void OnMouseUp(object? sender, MouseButtonEventArgs e) { _mouseDown = false; ReleaseMouseCapture(); CommitStroke(); }
 
