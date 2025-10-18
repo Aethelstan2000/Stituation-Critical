@@ -1,16 +1,22 @@
-    <Window x:Class="PixelStitch.MainWindow"
+    <Window x:Class="StituationCritical.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:local="clr-namespace:PixelStitch"
+        xmlns:local="clr-namespace:StituationCritical"
             xmlns:xctk="http://schemas.xceed.com/wpf/xaml/toolkit"
         x:Name="Root"
-        Title="PixelStitch - Pixel Art &amp; DMC Palette" Height="800" Width="1200">
+        Title="StituationCritical - Pixel Art &amp; DMC Palette" Height="800" Width="1200">
+    <Window.Resources>
+        <local:LockIconConverter x:Key="LockIconConverter"/>
+        <local:LockColourConverter x:Key="LockColourConverter"/>
+        <local:LockTipConverter x:Key="LockTipConverter"/>
+    </Window.Resources>
 
     <!-- Undo/Redo command wiring -->
     <Window.CommandBindings>
         <CommandBinding Command="ApplicationCommands.Undo" Executed="Undo_Executed" CanExecute="Undo_CanExecute"/>
         <CommandBinding Command="ApplicationCommands.Redo" Executed="Redo_Executed" CanExecute="Redo_CanExecute"/>
     </Window.CommandBindings>
+
     <Window.InputBindings>
         <KeyBinding Command="ApplicationCommands.Undo" Modifiers="Control" Key="Z"/>
         <KeyBinding Command="ApplicationCommands.Redo" Modifiers="Control" Key="Y"/>
@@ -153,7 +159,7 @@
                 <StackPanel Orientation="Vertical" VerticalAlignment="Center" Margin="10,4,10,4">
                         <Button Click="LoadRefImage_Click" Height="20" Margin="0,0,0,4" ToolTip="Load a background image to trace">Load Reference</Button>
                         <Button Click="ClearCanvas_Click" Height="20" Margin="0,0,0,4" ToolTip="Clears the pixel canvas">Clear canvas</Button>
-                        <Button Click="ImportPngToCanvas_Click" Height="20" Margin="0,0,0,4" ToolTip="Import an image and quantise to DMC">Import PNG → Canvas</Button>
+                        <Button Click="ImportToCanvas_Click" Height="20" Margin="0,0,0,4" ToolTip="Import an image and quantise to DMC">Import → Canvas</Button>
                         <Button Click="SavePng_Click" Height="20" Margin="0,0,0,4" ToolTip="Exports the canvas to PNG">Export Canvas → PNG</Button>
                     </StackPanel>
                <!--/StackPanel-->
@@ -166,19 +172,11 @@
                 <CheckBox Name="UseActiveForReduce" Margin="6,0">Use Active</CheckBox>
                 <Button Click="ReduceColours_Click" ToolTip="Remap canvas to Max Colours">Reduce</Button>
                 <Separator/>
-                <Button Click="ReassignSymbols_Click">Reassign Symbols</Button>
-                <Button Click="TestBuildPattern_Click">Test Pattern Export</Button>
-                <TextBlock VerticalAlignment="Center" Margin="0,0,4,0">Text="Exported Cell Size (mm):"</TextBlock>
-                <xctk:DoubleUpDown
-                                Name="PatternCellSize"
-                                Width="60"
-
-                                Minimum="1"
-                                Maximum="10"
-                                Value="2.5"
-                                Increment="0.25"
-                                HorizontalAlignment="Center"
-                                VerticalAlignment="Center" />
+                <StackPanel Orientation="Vertical" VerticalAlignment="Center" Margin="10,4,10,4">
+                    <Button Click="ReassignSymbols_Click" Height="20" Margin="0,0,0,4">Reassign Symbols</Button>
+                    <Button Click="ExportPattern_Click" Height="20" Margin="0,0,0,4">Pattern Export</Button>
+                    <Button Click="OpenSettings_Click" Height="20" Margin="0,0,0,4">Settings</Button>
+                </StackPanel>
             </ToolBar>
         </ToolBarTray>
 
@@ -246,6 +244,28 @@
                             <ListView Name="ActiveList" Grid.Row="1" SelectionChanged="ActiveList_SelectionChanged" SelectionMode="Extended">
                                 <ListView.View>
                                     <GridView>
+                                        <GridViewColumn Header="" Width="36">
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <ToggleButton
+          IsChecked="{Binding IsLocked, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+          Width="24" Height="24"
+          ToolTip="{Binding IsLocked, Converter={StaticResource LockTipConverter}}"
+          Background="Transparent"
+          BorderThickness="0"
+          Padding="0">
+                                                        <TextBlock
+            FontFamily="Segoe MDL2 Assets"
+            FontSize="14"
+            VerticalAlignment="Center"
+            HorizontalAlignment="Center"
+            Text="{Binding IsLocked, Converter={StaticResource LockIconConverter}}"
+            Foreground="{Binding IsLocked, Converter={StaticResource LockColourConverter}}"/>
+                                                    </ToggleButton>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+
                                         <!-- Symbol dropdown -->
                                         <GridViewColumn Header="Sym" Width="50">
                                             <GridViewColumn.CellTemplate>

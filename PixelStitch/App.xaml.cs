@@ -1,1 +1,1 @@
-using System.Windows; namespace PixelStitch { public partial class App : Application { } }
+using System.Windows; namespace StituationCritical { public partial class App : Application { } }

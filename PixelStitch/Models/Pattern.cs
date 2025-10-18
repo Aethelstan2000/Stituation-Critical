@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace PixelStitch.Models
+namespace StituationCritical.Models
 {
     public class Pattern
     {

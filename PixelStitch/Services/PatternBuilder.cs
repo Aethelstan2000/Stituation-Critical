@@ -1,8 +1,8 @@
 ﻿using System.Collections.Generic;
 using System.Windows.Media;
-using PixelStitch.Models;
+using StituationCritical.Models;
 
-namespace PixelStitch.Services
+namespace StituationCritical.Services
 {
     public static class PatternBuilder
     {

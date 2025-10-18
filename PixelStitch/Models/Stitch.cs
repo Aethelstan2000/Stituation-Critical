@@ -1,6 +1,6 @@
 ﻿using System.Windows.Media;
 
-namespace PixelStitch.Models
+namespace StituationCritical.Models
 {
     public enum StitchType
     {

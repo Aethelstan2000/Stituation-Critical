@@ -1,19 +1,23 @@
 using Microsoft.Win32;
-using PixelStitch.Services;
+using StituationCritical.Services;
+using StituationCritical.Settings;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
-namespace PixelStitch
+namespace StituationCritical
 {
-    public class PixelStitchProject
+    public class StituationCriticalProject
     {
         public int Version { get; set; } = 1;
         public int Width { get; set; }
@@ -27,10 +31,60 @@ namespace PixelStitch
 
     }
 
-    public class PaletteEntry
+    //public class PaletteEntry
+    //{
+    //    public string Code { get; set; } = "";
+    //    public string? Symbol { get; set; }
+    //}
+
+    public class PaletteEntry : INotifyPropertyChanged
     {
-        public string Code { get; set; } = "";
+        public string Code { get; set; }        // DMC code
+        public string Name { get; set; }        // DMC name
+        public System.Windows.Media.Color Color { get; set; }
         public string? Symbol { get; set; }
+
+        private bool _isLocked;
+        public bool IsLocked
+        {
+            get => _isLocked;
+            set { if (_isLocked != value) { _isLocked = value; OnPropertyChanged(nameof(IsLocked)); } }
+        }
+
+        public event PropertyChangedEventHandler PropertyChanged;
+        protected void OnPropertyChanged(string name) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+    }
+    public class LockIconConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            bool locked = value is bool b && b;
+            return locked ? "\uE72E" : "\uE785"; // Locked : Unlocked
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => Binding.DoNothing;
+    }
+
+    public class LockColourConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            bool locked = value is bool b && b;
+            return locked ? Brushes.Gold : Brushes.Gray;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => Binding.DoNothing;
+    }
+
+    public class LockTipConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            bool locked = value is bool b && b;
+            return locked ? "Locked – will not be removed when reducing" : "Unlocked – can be removed when reducing";
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => Binding.DoNothing;
     }
 
     public partial class MainWindow : Window
@@ -112,6 +166,16 @@ namespace PixelStitch
         public MainWindow()
         {
             InitializeComponent();
+            // Apply AppSettings defaults
+            try {
+                var s = AppSettings.Current;
+                if (WidthBox != null) WidthBox.Value = s.DefaultCanvasWidth;
+                if (HeightBox != null) HeightBox.Value = s.DefaultCanvasHeight;
+                if (RefOpacitySlider != null) RefOpacitySlider.Value = s.ReferenceOpacity;
+                if (CanvasOpacitySlider != null) CanvasOpacitySlider.Value = s.PixelLayerOpacity;
+                if (ShowRefCheck != null) ShowRefCheck.IsChecked = s.ReferenceVisible;
+            } catch {}
+            this.Loaded += MainWindow_Loaded_ApplyDefaultCanvasSize;
             Canvas.PreviewMouseWheel += Canvas_PreviewMouseWheel;
 
             // Middle-button panning
@@ -138,6 +202,23 @@ namespace PixelStitch
             ShowRefCheck.Click += (_, __) => MarkDirty();
 
         }
+        private void MainWindow_Loaded_ApplyDefaultCanvasSize(object? sender, RoutedEventArgs e)
+        {
+            var s = AppSettings.Current;
+
+            int w = Math.Max(1, s.DefaultCanvasWidth);
+            int h = Math.Max(1, s.DefaultCanvasHeight);
+
+            // Ensure the boxes reflect saved prefs
+            if (WidthBox != null) WidthBox.Text = w.ToString();
+            if (HeightBox != null) HeightBox.Text = h.ToString();
+
+            // Call the same resize routine the button uses
+            Canvas.ResizeCanvas(w, h, _resizeAnchor);
+
+            UpdateActivePaletteCounts();
+        }
+
 
         private void MergeSelected_Click(object sender, RoutedEventArgs e)
         {
@@ -209,7 +290,7 @@ namespace PixelStitch
             MarkDirty();
         }
 
-        private void TestBuildPattern_Click(object sender, RoutedEventArgs e)
+        private void ExportPattern_Click(object sender, RoutedEventArgs e)
         {
             if (_active == null || _active.Count == 0)
             {
@@ -219,19 +300,14 @@ namespace PixelStitch
 
             var pattern = PatternBuilder.FromCanvas(Canvas, _active);
 
-            // temporary symbol assignment
-            /*
-            string symbols = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-            int i = 0;
-            foreach (var col in _active)
-                pattern.SymbolMap[col.Code] = symbols[i++ % symbols.Length];
-            */
+            /// ToDo Implement options settings here
             var opts = new PatternExportOptions
             {
                 IncludeColourGrid = true,
                 IncludeSymbolGrid = true,
                 IncludeStitchTypeGrid = false,
-                CellSizemm = PatternCellSize.Value ?? 2.5,
+                CellSizemm = AppSettings.Current.GridCellMm,
+                Dpi = AppSettings.Current.ExportDpi,
                 MarginCm = 1.5,
                 HeaderCm = 1.2,
                 OverlapCells = 1,
@@ -294,8 +370,8 @@ namespace PixelStitch
         {
             var dlg = new Microsoft.Win32.SaveFileDialog
             {
-                Title = "Save PixelStitch Project",
-                Filter = "PixelStitch Project (*.pxsproj)|*.pxsproj",
+                Title = "Save StituationCritical Project",
+                Filter = "StituationCritical Project (*.pxsproj)|*.pxsproj",
                 FileName = "project.pxsproj"
             };
             if (dlg.ShowDialog() != true) return false;
@@ -310,7 +386,7 @@ namespace PixelStitch
                 var refBmp = Canvas.GetReferenceImage();
                 if (refBmp != null) refBase64 = Convert.ToBase64String(EncodePng(refBmp));
 
-                var proj = new PixelStitchProject
+                var proj = new StituationCriticalProject
                 {
                     Width = Canvas.WidthPixels,
                     Height = Canvas.HeightPixels,
@@ -554,6 +630,8 @@ namespace PixelStitch
 
         private void ActiveFromCanvas_Click(object sender, RoutedEventArgs e)
         {
+            ActiveFromCanvas();
+            return;
             if (!int.TryParse(MaxColoursBox.Text, out int n) || n < 1) { MessageBox.Show("Enter a valid Max Colours."); return; }
             var top = GetTopDmcFromCanvas(n).ToList();
             _active = top.Select(dc => dc.Clone()).ToList();
@@ -565,6 +643,142 @@ namespace PixelStitch
 
         }
 
+        private string NextFreeSymbol(HashSet<string> used)
+        {
+            foreach (var s in SymbolChoices)
+                if (used.Add(s))
+                    return s;
+
+            int i = 1;
+            while (!used.Add($"S{i}")) i++;
+            return $"S{i}";
+        }
+
+        private void EnsureSymbol(DmcColor entry, HashSet<string> used)
+        {
+            if (!string.IsNullOrWhiteSpace(entry.Symbol))
+            {
+                used.Add(entry.Symbol);
+                return;
+            }
+            entry.Symbol = NextFreeSymbol(used);
+        }
+
+        private void ActiveFromCanvas()
+        {
+            if (!int.TryParse(MaxColoursBox.Text, out int n) || n < 1)
+            {
+                MessageBox.Show("Enter a valid Max Colours.");
+                return;
+            }
+
+            // 1) Keep locked colours first
+            var locked = (_active ?? new List<DmcColor>()).Where(a => a.IsLocked).ToList();
+            if (locked.Count > n) n = locked.Count;
+
+            var final = new List<DmcColor>(n);
+            var seenCodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var d in locked)
+                if (!string.IsNullOrWhiteSpace(d.Code) && seenCodes.Add(d.Code))
+                    final.Add(d);
+
+            // 2) Fill remaining from canvas Top-N (skip duplicates)
+            var ranked = GetTopDmcFromCanvas(n * 3);
+            foreach (var d in ranked)
+            {
+                if (final.Count >= n) break;
+                if (!string.IsNullOrWhiteSpace(d.Code) && seenCodes.Add(d.Code))
+                    final.Add(d);
+            }
+
+            // 3) Build _active clones, preserving lock flags and symbols for locked
+            var lockedCodes = new HashSet<string>(locked.Select(x => x.Code), StringComparer.OrdinalIgnoreCase);
+            var usedSymbols = new HashSet<string>(StringComparer.Ordinal);
+
+            _active = final.Select(dc =>
+            {
+                var clone = dc.Clone();                   // your existing clone method
+                clone.IsLocked = lockedCodes.Contains(dc.Code);
+
+                if (clone.IsLocked && !string.IsNullOrWhiteSpace(dc.Symbol))
+                    clone.Symbol = dc.Symbol;             // preserve existing
+                else
+                    clone.Symbol = null;                  // force reassign for unlocked
+
+                return clone;
+            }).ToList();
+
+            // 4) Assign unique symbols (no reuse)
+            foreach (var a in _active.Where(a => !string.IsNullOrWhiteSpace(a.Symbol)))
+                usedSymbols.Add(a.Symbol!);
+
+            foreach (var a in _active.Where(a => string.IsNullOrWhiteSpace(a.Symbol)))
+                EnsureSymbol(a, usedSymbols);
+
+            // 5) Finish up
+            ActiveList.ItemsSource = _active;
+            ActiveList.Items.Refresh();
+            UpdateActivePaletteCounts();
+
+            // Avoid duplicate event subscription
+            Canvas.StrokeCommitted -= Canvas_StrokeCommitted_ForCounts;
+            Canvas.StrokeCommitted += Canvas_StrokeCommitted_ForCounts;
+        }
+
+        private void Canvas_StrokeCommitted_ForCounts(object? s, EventArgs e)
+        {
+            MarkDirty();
+            UpdateActivePaletteCounts();
+        }
+
+
+        /// <summary>
+        /// Imports full colour palette when importing to canvas
+        /// </summary>
+        private void ActiveFromCanvasAll()
+        {
+            var counts = new Dictionary<string, (DmcColor dmc, int count)>(StringComparer.OrdinalIgnoreCase);
+
+            for (int y = 0; y < Canvas.HeightPixels; y++)
+            {
+                for (int x = 0; x < Canvas.WidthPixels; x++)
+                {
+                    var c = Canvas.GetPixel(x, y);
+                    if (c.A == 0) continue;
+
+                    var dmc = MainWindow.NearestInPalette(c, _allDmc);
+                    if (dmc == null) continue;
+
+                    if (!counts.TryGetValue(dmc.Code, out var entry))
+                        counts[dmc.Code] = (dmc, 1);
+                    else
+                        counts[dmc.Code] = (entry.dmc, entry.count + 1);
+                }
+            }
+
+            if (counts.Count == 0)
+            {
+                MessageBox.Show("No colours found on the canvas.");
+                return;
+            }
+
+            // Order by usage, clone for Active, ensure symbols
+            _active = counts
+                .OrderByDescending(kv => kv.Value.count)
+                .Select(kv => kv.Value.dmc.Clone())
+                .ToList();
+
+            foreach (var a in _active) EnsureSymbol(a);
+
+            ActiveList.ItemsSource = _active;
+            ActiveList.Items.Refresh();
+
+            UpdateActivePaletteCounts();
+            MarkDirty();
+        }
+
+        
         private IEnumerable<DmcColor> GetTopDmcFromCanvas(int n)
         {
             var counts = new Dictionary<string, (DmcColor colour, int count)>(StringComparer.InvariantCultureIgnoreCase);
@@ -580,17 +794,63 @@ namespace PixelStitch
                 }
             return counts.Values.OrderByDescending(v => v.count).Take(n).Select(v => v.colour);
         }
+        
+        private List<DmcColor> BuildTopPalettePreservingLocks(int n)
+        {
+            if (n < 1) n = 1;
+
+            // 1) Collect locked colours from current active palette
+            var locked = _active.Where(d => d.IsLocked).ToList();
+
+            // Never drop a locked colour
+            if (locked.Count > n)
+                n = locked.Count;
+
+            // 2) Start final list with locked (dedup by Code)
+            var final = new List<DmcColor>(n);
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var d in locked)
+                if (!string.IsNullOrWhiteSpace(d.Code) && seen.Add(d.Code))
+                    final.Add(d);
+
+            // 3) Get ranked candidates from canvas (your existing function)
+            //    Overshoot a little to skip duplicates/locked naturally
+            var ranked = GetTopDmcFromCanvas(n * 3);
+
+            foreach (var d in ranked)
+            {
+                if (final.Count >= n) break;
+                if (!string.IsNullOrWhiteSpace(d.Code) && seen.Add(d.Code))
+                    final.Add(d);
+            }
+
+            // 4) Safety backfill from full DMC list if needed (very rare)
+            if (final.Count < n)
+            {
+                foreach (var d in _allDmc)
+                {
+                    if (final.Count >= n) break;
+                    if (!string.IsNullOrWhiteSpace(d.Code) && seen.Add(d.Code))
+                        final.Add(d);
+                }
+            }
+
+            // 5) Preserve IsLocked flags on output
+            var lockedCodes = new HashSet<string>(locked.Select(x => x.Code), StringComparer.OrdinalIgnoreCase);
+            foreach (var d in final)
+                d.IsLocked = lockedCodes.Contains(d.Code);
+
+            return final;
+        }
+
 
         private void NewCanvas_Click(object sender, RoutedEventArgs e)
         {
             if (!ConfirmDiscardIfDirty()) return;
-
-            if (!int.TryParse(WidthBox.Text, out int w) || !int.TryParse(HeightBox.Text, out int h) ||
-                w < 1 || h < 1 || w > 2048 || h > 2048)
-            {
-                MessageBox.Show("Enter valid size (1..2048).");
-                return;
-            }
+            var s = AppSettings.Current; // fetch current settings cleanly
+            int w = Math.Max(1, s.DefaultCanvasWidth);
+            int h = Math.Max(1, s.DefaultCanvasHeight);
 
             Canvas.NewCanvas(w, h);
             Canvas.ClearReferenceImage();
@@ -621,7 +881,7 @@ namespace PixelStitch
 
         private void SavePng_Click(object sender, RoutedEventArgs e)
         {
-            var dlg = new SaveFileDialog() { Title = "Save Pixel Layer as PNG", Filter = "PNG Image|*.png", FileName = "pixelstitch.png" };
+            var dlg = new SaveFileDialog() { Title = "Save Pixel Layer as PNG", Filter = "PNG Image|*.png", FileName = "StituationCritical.png" };
             if (dlg.ShowDialog() == true)
             {
                 try { var wb = Canvas.ExportPixelLayer(); using var fs = File.OpenWrite(dlg.FileName); var enc = new PngBitmapEncoder(); enc.Frames.Add(BitmapFrame.Create(wb)); enc.Save(fs); }
@@ -702,7 +962,7 @@ namespace PixelStitch
         }
         private void SaveProject()
         {
-            var dlg = new SaveFileDialog { Title = "Save PixelStitch Project", Filter = "PixelStitch Project (*.pxsproj)|*.pxsproj", FileName = docTitle + ".pxsproj" };
+            var dlg = new SaveFileDialog { Title = "Save StituationCritical Project", Filter = "StituationCritical Project (*.pxsproj)|*.pxsproj", FileName = docTitle + ".pxsproj" };
             if (dlg.ShowDialog() != true) return;
             try
             {
@@ -718,7 +978,7 @@ namespace PixelStitch
                     refBase64 = Convert.ToBase64String(refBytes);
                 }
 
-                var proj = new PixelStitchProject
+                var proj = new StituationCriticalProject
                 {
                     Width = Canvas.WidthPixels,
                     Height = Canvas.HeightPixels,
@@ -741,12 +1001,12 @@ namespace PixelStitch
         }
         private void LoadProject_Click(object sender, RoutedEventArgs e)
         {
-            var dlg = new OpenFileDialog { Title = "Open PixelStitch Project", Filter = "PixelStitch Project (*.pxsproj)|*.pxsproj" };
+            var dlg = new OpenFileDialog { Title = "Open StituationCritical Project", Filter = "StituationCritical Project (*.pxsproj)|*.pxsproj" };
             if (dlg.ShowDialog() != true) return;
             try
             {
                 var json = File.ReadAllText(dlg.FileName);
-                var proj = System.Text.Json.JsonSerializer.Deserialize<PixelStitchProject>(json);
+                var proj = System.Text.Json.JsonSerializer.Deserialize<StituationCriticalProject>(json);
                 if (proj == null) throw new Exception("Invalid project.");
                 WidthBox.Text = proj.Width.ToString(); HeightBox.Text = proj.Height.ToString();
                 Canvas.NewCanvas(proj.Width, proj.Height);
@@ -806,7 +1066,7 @@ namespace PixelStitch
             return bestC;
         }
 
-        private void ImportPngToCanvas_Click(object sender, RoutedEventArgs e)
+        private void ImportToCanvas_Click(object sender, RoutedEventArgs e)
         {
             var dlg = new OpenFileDialog { Title = "Import Image onto Pixel Canvas", Filter = "Images|*.png;*.jpg;*.jpeg;*.bmp;*.gif" };
             if (dlg.ShowDialog() != true) return;
@@ -823,14 +1083,23 @@ namespace PixelStitch
                         colors[x, y] = c.A == 0 ? Colors.Transparent : NearestInPalette(c, _allDmc).Color;
                     }
                 Canvas.ApplyPixelsWithUndo(colors);
+                ActiveFromCanvasAll();
                 UpdateActivePaletteCounts();
                 MarkDirty();
+                if (_active.Count > 0) SetActiveColour(_active[0]);
+
+                //var colours = Canvas.AnalyseTopDmcColours(maxColours: 32);
+                //ActivePalette.Load(colours);
+                //ActivePalette.AssignSymbols();
+                //UpdateActivePaletteCounts();
+
                 MessageBox.Show("PNG imported to canvas (quantised to DMC).");
 
             }
             catch (Exception ex) { MessageBox.Show("Failed to import image: " + ex.Message); }
         }
 
+        /*
         private void ReduceColours_Click(object sender, RoutedEventArgs e)
         {
             if (!int.TryParse(MaxColoursBox.Text, out int n) || n < 1) { MessageBox.Show("Enter a valid Max Colours."); return; }
@@ -854,6 +1123,103 @@ namespace PixelStitch
             MessageBox.Show($"Reduced to {targetPalette.Count} colours.");
 
         }
+        */
+        private void ReduceColours_Click(object sender, RoutedEventArgs e)
+        {
+            if (!int.TryParse(MaxColoursBox.Text, out int n) || n < 1)
+            {
+                MessageBox.Show("Enter a valid Max Colours.");
+                return;
+            }
+
+            // 1) Collect locked colours from the active palette (requires DmcColor.IsLocked)
+            var locked = _active.Where(d => d.IsLocked).ToList();
+
+            // Ensure we never drop a locked colour
+            if (locked.Count > n)
+                n = locked.Count;
+
+            // We'll build the final palette here, always starting with locked
+            var targetPalette = new List<DmcColor>(n);
+
+            // Use code (or ARGB) to dedupe
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var d in locked)
+                if (seen.Add(d.Code))
+                    targetPalette.Add(d);
+
+            // 2) Fill remaining slots based on the user's choice
+            int remaining = n - targetPalette.Count;
+
+            if (remaining > 0)
+            {
+                if (UseActiveForReduce.IsChecked == true && _active.Count > 0)
+                {
+                    // Keep current active order, skipping already-added locked entries
+                    foreach (var d in _active)
+                    {
+                        if (targetPalette.Count >= n) break;
+                        if (seen.Add(d.Code))
+                            targetPalette.Add(d);
+                    }
+                }
+                else
+                {
+                    // Use your canvas-derived ranking
+                    foreach (var d in GetTopDmcFromCanvas(n * 2)) // overshoot a bit to skip dupes/locked
+                    {
+                        if (targetPalette.Count >= n) break;
+                        if (seen.Add(d.Code))
+                            targetPalette.Add(d);
+                    }
+                }
+            }
+
+            // Safety: if we still came up short (unlikely), backfill from full list
+            if (targetPalette.Count < n)
+            {
+                foreach (var d in _allDmc)
+                {
+                    if (targetPalette.Count >= n) break;
+                    if (seen.Add(d.Code))
+                        targetPalette.Add(d);
+                }
+            }
+
+            // 3) Recolour the canvas using the final target palette
+            int w = Canvas.WidthPixels, h = Canvas.HeightPixels;
+            var newPixels = new System.Windows.Media.Color[w, h];
+
+            for (int y = 0; y < h; y++)
+            {
+                for (int x = 0; x < w; x++)
+                {
+                    var c = Canvas.GetPixel(x, y);
+                    if (c.A == 0) { newPixels[x, y] = Colors.Transparent; continue; }
+                    var nearest = NearestInPalette(c, targetPalette);
+                    newPixels[x, y] = nearest.Color;
+                }
+            }
+
+            Canvas.ApplyPixelsWithUndo(newPixels);
+
+            // Optional: refresh active palette to reflect the new target (keeps lock flags)
+            // Map existing lock flags by code so we don’t lose them.
+            var lockedCodes = new HashSet<string>(_active.Where(a => a.IsLocked).Select(a => a.Code),
+                                                  StringComparer.OrdinalIgnoreCase);
+            _active = targetPalette
+                .Select(d => { d.IsLocked = lockedCodes.Contains(d.Code); return d; })
+                .ToList();
+
+            ActiveList.ItemsSource = _active;
+            ActiveList.Items.Refresh();
+
+            UpdateActivePaletteCounts();
+            MarkDirty();
+
+            MessageBox.Show($"Reduced to {targetPalette.Count} colours. (Locked preserved: {locked.Count})");
+        }
+
 
         private void ReassignSymbols_Click(object sender, RoutedEventArgs e)
         {
@@ -901,5 +1267,18 @@ namespace PixelStitch
             base.OnClosing(e);
         }
 
-    }
+    
+        private void OpenSettings_Click(object sender, System.Windows.RoutedEventArgs e)
+        {
+            var dlg = new StituationCritical.Settings.SettingsWindow { Owner = this };
+            if (dlg.ShowDialog() == true)
+            {
+                // Re-apply settings upon save
+                var s = AppSettings.Current;
+                if (RefOpacitySlider != null) RefOpacitySlider.Value = s.ReferenceOpacity;
+                if (CanvasOpacitySlider != null) CanvasOpacitySlider.Value = s.PixelLayerOpacity;
+                if (ShowRefCheck != null) ShowRefCheck.IsChecked = s.ReferenceVisible;
+            }
+        }
+}
 }

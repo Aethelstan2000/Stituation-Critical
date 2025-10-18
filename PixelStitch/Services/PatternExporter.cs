@@ -1,5 +1,5 @@
 ﻿using MigraDocCore.DocumentObjectModel.Tables;
-using PixelStitch.Models;
+using StituationCritical.Models;
 using System;
 using MdColor = MigraDocCore.DocumentObjectModel.Color;
 using MdColors = MigraDocCore.DocumentObjectModel.Colors;
@@ -10,7 +10,7 @@ using MDR = MigraDocCore.Rendering;
 using WColor = System.Windows.Media.Color;
 
 
-namespace PixelStitch.Services
+namespace StituationCritical.Services
 {
     public enum PatternViewType
     {
@@ -25,6 +25,7 @@ namespace PixelStitch.Services
         public bool IncludeSymbolGrid { get; set; }
         public bool IncludeStitchTypeGrid { get; set; }
         public double CellSizemm { get; set; } = 2.5;
+        public int Dpi { get; set; } = 144;
         public double MarginCm { get; set; } = 1.5;
         public double HeaderCm { get; set; } = 1.2;
         public int OverlapCells { get; set; } = 1;   // 0..2 recommended
@@ -46,8 +47,8 @@ namespace PixelStitch.Services
             // After creating 'doc'
             doc.Styles["Normal"].Font.Name = "Segoe UI Symbol"; // good coverage on Windows
 
-            doc.Info.Title = "PixelStitch Pattern";
-            doc.Info.Subject = "Generated from PixelStitch";
+            doc.Info.Title = "StituationCritical Pattern";
+            doc.Info.Subject = "Generated from StituationCritical";
             doc.DefaultPageSetup.Orientation = MDO.Orientation.Portrait;
 
             if (opts.IncludeColourGrid)
@@ -67,83 +68,6 @@ namespace PixelStitch.Services
             renderer.RenderDocument();
             renderer.PdfDocument.Save(opts.OutputPath);
         }
-
-        private static void AddGridPage(MDO.Document doc, Pattern pattern, PatternViewType view)
-        {
-            var section = doc.AddSection();
-            section.PageSetup.TopMargin = "1cm";
-            section.PageSetup.LeftMargin = "1cm";
-            section.PageSetup.RightMargin = "1cm";
-            var cellSize = MDO.Unit.FromMillimeter(2.5);
-            section.AddParagraph($"Pattern Grid – {view}", "Heading1").Format.SpaceAfter = "0.5cm";
-
-            // Build a grid table
-            var table = section.AddTable();
-            table.Borders.Width = 0.25;
-
-            for (int x = 0; x < pattern.Width; x++)
-                table.AddColumn(cellSize);
-
-            var grid = new Stitch[pattern.Width, pattern.Height];
-            foreach (var s in pattern.Stitches)
-                if (s.X < pattern.Width && s.Y < pattern.Height)
-                    grid[s.X, s.Y] = s;
-
-            for (int y = 0; y < pattern.Height; y++)
-            {
-                var row = table.AddRow();
-                // thicker horizontal line every 10 rows
-                if (y % 10 == 0)
-                    row.Borders.Top.Width = 0.75;
-                table.Rows.Height = cellSize;
-                table.Rows.HeightRule = MigraDocCore.DocumentObjectModel.Tables.RowHeightRule.Exactly;
-                for (int x = 0; x < pattern.Width; x++)
-                {
-                    var cell = row.Cells[x];
-                    if (x % 10 == 0)
-                        cell.Borders.Left.Width = 0.75;
-                    cell.Format.Alignment = MigraDocCore.DocumentObjectModel.ParagraphAlignment.Center;
-                    cell.VerticalAlignment = MigraDocCore.DocumentObjectModel.Tables.VerticalAlignment.Center;
-                    cell.Format.SpaceBefore = 0;
-                    cell.Format.SpaceAfter = 0;
-                    cell.Format.LeftIndent = 0;
-                    cell.Format.RightIndent = 0;
-                    cell.Format.LineSpacing = 1; // keeps symbols tight
-
-                    var st = grid[x, y];
-                    if (st == null) continue;
-
-                    switch (view)
-                    {
-                        case PatternViewType.Colour:
-                            cell.Shading.Color = ToMigraColor(st.Colour);
-                            break;
-
-                        case PatternViewType.Symbols:
-                            
-                                if (pattern.SymbolMap.TryGetValue(st.DmcCode, out var sym))
-                                {
-                                    var p = cell.AddParagraph(sym.ToString());
-                                    p.Format.Font.Size = 6.5; // tweak to taste
-                                    p.Format.Alignment = MDO.ParagraphAlignment.Center;
-                                    cell.VerticalAlignment = MDO.Tables.VerticalAlignment.Center;
-                                    cell.Format.SpaceBefore = 0;
-                                    cell.Format.SpaceAfter = 0;
-                                    cell.Format.LeftIndent = 0;
-                                    cell.Format.RightIndent = 0;
-                                }
-                                break;
-                            
-
-
-                        case PatternViewType.StitchTypes:
-                            cell.AddParagraph(st.Type.ToString().Substring(0, 1)); // placeholder
-                            break;
-                    }
-                }
-            }
-        }
-
         private static void AddTiledGridPages(MDO.Document doc, Pattern pattern, PatternViewType view, PatternExportOptions opts)
         {
             // Page geometry (points)

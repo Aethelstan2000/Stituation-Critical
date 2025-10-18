@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Windows.Media;
 
-namespace PixelStitch
+namespace StituationCritical
 {
     public class DmcColor
     {
@@ -9,6 +9,7 @@ namespace PixelStitch
         public string Name { get; set; } = "";
         public Color Color { get; set; }
         public int Count { get; set; } = 0;
+        public bool IsLocked { get; set; }   // default false
 
         public string? Symbol { get; set; } // used only in Active Palette / export
 
