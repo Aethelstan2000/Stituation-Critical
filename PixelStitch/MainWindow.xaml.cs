@@ -960,6 +960,7 @@ namespace StituationCritical
         {
             SaveProject();
         }
+        /*
         private void SaveProject()
         {
             var dlg = new SaveFileDialog { Title = "Save StituationCritical Project", Filter = "StituationCritical Project (*.pxsproj)|*.pxsproj", FileName = docTitle + ".pxsproj" };
@@ -999,6 +1000,87 @@ namespace StituationCritical
             }
             catch (Exception ex) { MessageBox.Show("Failed to save project: " + ex.Message); }
         }
+        */
+        private void SaveProject()
+        {
+            var dlg = new SaveFileDialog
+            {
+                Title = "Save Stituation Critical Project",
+                Filter = "Stituation Critical Project (*.pxsproj)|*.pxsproj",
+                FileName = docTitle + ".pxsproj"
+            };
+            if (dlg.ShowDialog() != true) return;
+
+            var path = dlg.FileName;
+            var tmpPath = path + ".tmp";
+            var bakPath = path + ".bak";
+
+            try
+            {
+                // --- Gather data ---
+                var pixelLayer = Canvas.ExportPixelLayer();
+                byte[] pixelPng = EncodePng(pixelLayer);
+
+                string? refBase64 = null;
+                var refBmp = Canvas.GetReferenceImage();
+                if (refBmp != null)
+                {
+                    var refBytes = EncodePng(refBmp);
+                    refBase64 = Convert.ToBase64String(refBytes);
+                }
+
+                var proj = new StituationCriticalProject
+                {
+                    Width = Canvas.WidthPixels,
+                    Height = Canvas.HeightPixels,
+                    ReferenceOpacity = RefOpacitySlider.Value,
+                    ReferenceVisible = ShowRefCheck.IsChecked == true,
+                    PixelLayerPngBase64 = Convert.ToBase64String(pixelPng),
+                    ReferencePngBase64 = refBase64,
+                    ActivePalette = _active.Select(a => new PaletteEntry
+                    {
+                        Code = a.Code,
+                        Symbol = a.Symbol,
+                        // IsLocked = a.IsLocked   // ← uncomment to persist locks
+                    }).ToList(),
+                    CanvasOpacity = CanvasOpacitySlider.Value
+                };
+
+                var json = System.Text.Json.JsonSerializer.Serialize(
+                    proj,
+                    new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+
+                // Ensure target directory exists
+                var dir = System.IO.Path.GetDirectoryName(path);
+                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                    Directory.CreateDirectory(dir);
+
+                // --- Atomic write: write to temp, then replace/move ---
+                File.WriteAllText(tmpPath, json);  // UTF-8 without BOM by default
+
+                if (File.Exists(path))
+                {
+                    // Atomic swap with backup; .bak can help diagnose if needed
+                    File.Replace(tmpPath, path, bakPath);
+                }
+                else
+                {
+                    File.Move(tmpPath, path);
+                }
+
+                MessageBox.Show("Project saved.");
+
+                docTitle = Path.GetFileNameWithoutExtension(path);
+                Title = docTitle;
+            }
+            catch (Exception ex)
+            {
+                // Cleanup temp file if something failed mid-save
+                try { if (File.Exists(tmpPath)) File.Delete(tmpPath); } catch { /* ignore */ }
+                MessageBox.Show("Failed to save project: " + ex.Message);
+            }
+        }
+
         private void LoadProject_Click(object sender, RoutedEventArgs e)
         {
             var dlg = new OpenFileDialog { Title = "Open StituationCritical Project", Filter = "StituationCritical Project (*.pxsproj)|*.pxsproj" };

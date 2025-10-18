@@ -36,7 +36,9 @@ namespace StituationCritical.Settings
         {
             get
             {
-                var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "StituationCritical");
+                // %LOCALAPPDATA%\DWSoftware\StituationCritical
+                var baseDir = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+                var dir = Path.Combine(baseDir, "DWSoftware", "StituationCritical");
                 if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
                 return dir;
             }
