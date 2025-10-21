@@ -51,6 +51,8 @@
                 </ComboBox>
                 <TextBlock Text="Grid Cell (mm)" VerticalAlignment="Center"/>
                 <xctk:DoubleUpDown x:Name="GridCellBox" Minimum="1" Maximum="10" Increment="0.5" Width="80"/>
+                <TextBlock Text="Cloth Count" VerticalAlignment="Center"/>
+                <xctk:DoubleUpDown x:Name="ClothCountBox" Minimum="7" Maximum="28" Increment="0.5" Width="80"/>
             </UniformGrid>
         </StackPanel>
 

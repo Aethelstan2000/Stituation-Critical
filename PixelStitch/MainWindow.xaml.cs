@@ -305,8 +305,10 @@ namespace StituationCritical
             {
                 IncludeColourGrid = true,
                 IncludeSymbolGrid = true,
-                IncludeStitchTypeGrid = false,
+                IncludeStitchTypeGrid = true,
+                IncludeTrueSizeGrid = true,
                 CellSizemm = AppSettings.Current.GridCellMm,
+                ClothCount =AppSettings.Current.ClothCount,
                 Dpi = AppSettings.Current.ExportDpi,
                 MarginCm = 1.5,
                 HeaderCm = 1.2,
@@ -960,47 +962,7 @@ namespace StituationCritical
         {
             SaveProject();
         }
-        /*
-        private void SaveProject()
-        {
-            var dlg = new SaveFileDialog { Title = "Save StituationCritical Project", Filter = "StituationCritical Project (*.pxsproj)|*.pxsproj", FileName = docTitle + ".pxsproj" };
-            if (dlg.ShowDialog() != true) return;
-            try
-            {
-                var pixelLayer = Canvas.ExportPixelLayer();
-                byte[] pixelPng = EncodePng(pixelLayer);
 
-                // NEW: grab reference image if present
-                string? refBase64 = null;
-                var refBmp = Canvas.GetReferenceImage();
-                if (refBmp != null)
-                {
-                    var refBytes = EncodePng(refBmp);
-                    refBase64 = Convert.ToBase64String(refBytes);
-                }
-
-                var proj = new StituationCriticalProject
-                {
-                    Width = Canvas.WidthPixels,
-                    Height = Canvas.HeightPixels,
-                    ReferenceOpacity = RefOpacitySlider.Value,
-                    ReferenceVisible = ShowRefCheck.IsChecked == true,
-                    PixelLayerPngBase64 = Convert.ToBase64String(pixelPng),
-                    ReferencePngBase64 = refBase64, // << embed it
-                    ActivePalette = _active.Select(a => new PaletteEntry { Code = a.Code, Symbol = a.Symbol }).ToList(),
-                    CanvasOpacity = CanvasOpacitySlider.Value
-
-                };
-
-                var json = System.Text.Json.JsonSerializer.Serialize(proj, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
-                File.WriteAllText(dlg.FileName, json);
-                MessageBox.Show("Project saved.");
-                docTitle = Path.GetFileNameWithoutExtension(dlg.FileName);
-                Title = docTitle;
-            }
-            catch (Exception ex) { MessageBox.Show("Failed to save project: " + ex.Message); }
-        }
-        */
         private void SaveProject()
         {
             var dlg = new SaveFileDialog
@@ -1072,6 +1034,7 @@ namespace StituationCritical
 
                 docTitle = Path.GetFileNameWithoutExtension(path);
                 Title = docTitle;
+                MarkClean();
             }
             catch (Exception ex)
             {
@@ -1127,7 +1090,7 @@ namespace StituationCritical
 
                 ActiveList.ItemsSource = _active;
                 ActiveList.Items.Refresh();
-
+                UpdateActivePaletteCounts();
                 MessageBox.Show("Project loaded.");
                 docTitle = Path.GetFileNameWithoutExtension(dlg.FileName);
                 Title = docTitle;

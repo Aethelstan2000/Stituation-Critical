@@ -4,11 +4,13 @@ namespace StituationCritical.Models
 {
     public enum StitchType
     {
+        None = 0,
         Full,
         Half,
         ThreeQuarter,
         Quarter,
-        Backstitch
+        Backstitch,
+        FrenchKnot
     }
 
     public class Stitch

@@ -25,6 +25,9 @@ namespace StituationCritical.Settings
         public int ExportDpi { get; set; } = 144;
         public string ExportPageSize { get; set; } = "A4"; // A4, Letter, etc.
         public double GridCellMm { get; set; } = 4.0; // for PDF grid scaling
+        public double ClothCount { get; set; } = 7.0; // for PDF grid scaling
+        public int TrueSize_OverThreads { get; set; } = 1;
+
 
         // ---- Paths ----
         public string? LastOpenFolder { get; set; }

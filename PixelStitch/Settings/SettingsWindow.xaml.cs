@@ -24,7 +24,7 @@ namespace StituationCritical.Settings
 
             DpiBox.Value = _settings.ExportDpi;
             GridCellBox.Value = _settings.GridCellMm;
-
+            ClothCountBox.Value = _settings.ClothCount;
             // Page size
             PageSizeBox.SelectedIndex = 0;
             for (int i = 0; i < PageSizeBox.Items.Count; i++)
@@ -50,7 +50,7 @@ namespace StituationCritical.Settings
 
             if (DpiBox.Value.HasValue) _settings.ExportDpi = (int)DpiBox.Value.Value;
             if (GridCellBox.Value.HasValue) _settings.GridCellMm = GridCellBox.Value.Value;
-
+            if (ClothCountBox.Value.HasValue) _settings.ClothCount = ClothCountBox.Value.Value;
             var sel = PageSizeBox.SelectedItem as System.Windows.Controls.ComboBoxItem;
             _settings.ExportPageSize = sel != null ? (string)sel.Content : "A4";
 

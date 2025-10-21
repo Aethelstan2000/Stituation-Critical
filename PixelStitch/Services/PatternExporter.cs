@@ -1,6 +1,7 @@
 ﻿using MigraDocCore.DocumentObjectModel.Tables;
 using StituationCritical.Models;
 using System;
+using System.Security.Policy;
 using MdColor = MigraDocCore.DocumentObjectModel.Color;
 using MdColors = MigraDocCore.DocumentObjectModel.Colors;
 // ---- MigraDocCore (PDF) with aliases to avoid clashes ----
@@ -16,7 +17,8 @@ namespace StituationCritical.Services
     {
         Colour,
         Symbols,
-        StitchTypes
+        StitchTypes,
+        TrueSize,
     }
 
     public class PatternExportOptions
@@ -24,7 +26,11 @@ namespace StituationCritical.Services
         public bool IncludeColourGrid { get; set; }
         public bool IncludeSymbolGrid { get; set; }
         public bool IncludeStitchTypeGrid { get; set; }
+        public bool IncludeTrueSizeGrid { get; set; }
         public double CellSizemm { get; set; } = 2.5;
+        public double ClothCount { get; set; } = 7;
+        public int TrueSize_OverThreads { get; set; } = 1;
+
         public int Dpi { get; set; } = 144;
         public double MarginCm { get; set; } = 1.5;
         public double HeaderCm { get; set; } = 1.2;
@@ -60,6 +66,14 @@ namespace StituationCritical.Services
             if (opts.IncludeStitchTypeGrid)
                 AddTiledGridPages(doc, pattern, PatternViewType.StitchTypes, opts);
 
+            if (opts.IncludeTrueSizeGrid)
+            {
+
+                double spi = (double)opts.ClothCount / opts.TrueSize_OverThreads;
+                double cellPt = 72.0 / spi;
+                opts.CellSizemm = cellPt *25.4 / 72.0;
+                AddTiledGridPages(doc, pattern, PatternViewType.TrueSize, opts);
+            }
 
             AddLegendPage(doc, pattern);
 
@@ -99,11 +113,11 @@ namespace StituationCritical.Services
                 for (int x0 = 0; x0 < pattern.Width; x0 += stepX)
                 {
                     int xCount = Math.Min(cellsX, pattern.Width - x0);
-                    RenderTilePage(doc, pattern, view, x0, y0, xCount, yCount, cellPt, marginPt, headerPt);
+                    RenderTilePage(doc, pattern, view, x0, y0, xCount, yCount, cellPt, marginPt, headerPt, opts);
                 }
             }
         }
-
+        /*
         private static void RenderTilePage(
             MDO.Document doc,
             Pattern pattern,
@@ -126,8 +140,7 @@ namespace StituationCritical.Services
             var table = section.AddTable();
             table.Borders.Width = 0; // base hairlines off (reduces shimmer)
             table.Rows.LeftIndent = 0;
-            table.Rows.HeightRule = MDO.Tables.RowHeightRule.Exactly
-;
+            table.Rows.HeightRule = MDO.Tables.RowHeightRule.Exactly;
 
             for (int x = 0; x < xCount; x++)
                 table.AddColumn(MDO.Unit.FromPoint(cellPt));
@@ -136,8 +149,9 @@ namespace StituationCritical.Services
             // (optional, you can also index directly from pattern.Stitches)
             // We'll render directly by probing each (x,y).
 
-            double heavy = 1.0; // pt for 10×10 lines
-            double thin = 0.25;
+            bool drawGrid = (view != PatternViewType.TrueSize);
+            double heavy = drawGrid ? 1.0 : 0.0;  // 10×10 lines
+            double thin = drawGrid ? 0.25 : 0.0; // minor grid
 
             for (int ry = 0; ry < yCount; ry++)
             {
@@ -195,6 +209,19 @@ namespace StituationCritical.Services
                             cell.Shading.Color = ToMigraColor(st.Colour);
                             break;
 
+                        case PatternViewType.TrueSize:
+
+                            var c = st.Colour;
+                            double k = Math.Clamp(0.25, 0.0, 0.5);  // 0 = original, 0.2 = noticeably lighter
+                            byte r = (byte)Math.Round(c.R * (1 - k) + 255 * k);
+                            byte g = (byte)Math.Round(c.G * (1 - k) + 255 * k);
+                            byte b = (byte)Math.Round(c.B * (1 - k) + 255 * k);
+
+                            cell.Shading.Color = ToMigraColor(WColor.FromRgb(r, g, b));
+                            break;
+                            //cell.Shading.Color = ToMigraColor(st.Colour);
+                            //break;
+
                         case PatternViewType.Symbols:
                             if (!string.IsNullOrEmpty(st.DmcCode) &&
                                 pattern.SymbolMap.TryGetValue(st.DmcCode, out var sym))
@@ -243,6 +270,233 @@ namespace StituationCritical.Services
                 }
             }
         }
+        */
+
+        private static void RenderTilePage(
+            MDO.Document doc,
+            Pattern pattern,
+            PatternViewType view,
+            int x0, int y0, int xCount, int yCount,
+            double cellPt, double marginPt, double headerPt, PatternExportOptions opts)
+        {
+            var section = doc.AddSection();
+
+            // Title + range
+            var title = section.AddParagraph($"Pattern Grid — {view}");
+            title.Style = "Heading1";
+            title.Format.SpaceAfter = "0.2cm";
+
+            var range = section.AddParagraph($"Columns {x0 + 1}–{x0 + xCount}, Rows {y0 + 1}–{y0 + yCount}");
+            range.Format.SpaceAfter = "0.5cm";
+            range.Format.Font.Size = 9;
+
+            // Table scaffold
+            var table = section.AddTable();
+            table.Borders.Width = 0; // reduce shimmer
+            table.Rows.LeftIndent = 0;
+            table.Rows.HeightRule = MDO.Tables.RowHeightRule.Exactly;
+
+            // Rulers shown only when enabled AND not in TrueSize view
+            bool showRulers = opts.ShowRulers && (view != PatternViewType.TrueSize);
+
+            // Optional left ruler column (narrow)
+            int colOffset = 0;
+            if (showRulers)
+            {
+                var rulerCol = table.AddColumn(MDO.Unit.FromPoint(Math.Max(cellPt * 0.5, 6))); // ~half cell or min 6pt
+                rulerCol.LeftPadding = 0;
+                rulerCol.RightPadding = 0;
+                colOffset = 1;
+            }
+
+            // Content columns
+            for (int x = 0; x < xCount; x++)
+                table.AddColumn(MDO.Unit.FromPoint(cellPt));
+
+            // Grid stroke widths
+            bool drawGrid = (view != PatternViewType.TrueSize);
+            double heavy = drawGrid ? 1.0 : 0.0;   // 10×10 lines
+            double thin = drawGrid ? 0.25 : 0.0;  // minor grid
+
+            // Optional top ruler row
+            int contentRowStart = 0;
+            if (showRulers)
+            {
+                var headerRow = table.AddRow();
+                headerRow.Height = MDO.Unit.FromPoint(Math.Max(cellPt * 0.5, 6));
+                headerRow.VerticalAlignment = MDO.Tables.VerticalAlignment.Center;
+
+                // Top-left corner blank
+                headerRow.Cells[0].AddParagraph("");
+
+                // Column numbers every 10th column
+                for (int rx = 0; rx < xCount; rx++)
+                {
+                    int gx = x0 + rx;
+                    var p = headerRow.Cells[rx + 1].AddParagraph(((gx + 1) % 10 == 0) ? (gx + 1).ToString() : "");
+                    p.Format.Alignment = MDO.ParagraphAlignment.Center;
+                    p.Format.Font.Size = 6;
+                    p.Format.Font.Bold = true;
+                    p.Format.Font.Color = MDO.Colors.Gray;
+                    p.Format.SpaceBefore = 0;
+                    p.Format.SpaceAfter = 0;
+                }
+
+                contentRowStart = 1;
+            }
+
+            // Content rows
+            for (int ry = 0; ry < yCount; ry++)
+            {
+                int gy = y0 + ry;
+                var row = table.AddRow();
+                row.Height = MDO.Unit.FromPoint(cellPt);
+
+                // Row top border per 10s
+                row.Borders.Top.Width = (gy % 10 == 0) ? heavy : thin;
+
+                // Left ruler cell (row numbers)
+                if (showRulers)
+                {
+                    var rc = row.Cells[0];
+
+                    // CLEAR horizontal line inside the ruler cell:
+                    rc.Borders.Top.Width = 0;
+
+                    // Optional: no left edge; faint divider on the right to separate rulers from grid
+                    rc.Borders.Left.Width = 0;
+                    rc.Borders.Right.Width = thin;
+
+                    var rp = rc.AddParagraph(((gy + 1) % 10 == 0) ? (gy + 1).ToString() : "");
+                    rp.Format.Alignment = MDO.ParagraphAlignment.Right;
+                    rp.Format.Font.Size = 6;
+                    rp.Format.Font.Bold = true;
+                    rp.Format.Font.Color = MDO.Colors.Gray;
+                    rp.Format.SpaceBefore = 0;
+                    rp.Format.SpaceAfter = 0;
+                }
+
+                // Content cells
+                for (int rx = 0; rx < xCount; rx++)
+                {
+                    int gx = x0 + rx;
+                    var cell = row.Cells[rx + colOffset];
+
+                    // Vertical grid lines
+                    cell.Borders.Left.Width = (gx % 10 == 0) ? heavy : thin;
+
+                    // Fetch stitch
+                    Stitch st = null;
+                    if (pattern.StitchGrid != null)
+                        st = pattern.StitchGrid[gx, gy];
+                    else
+                    {
+                        foreach (var s in pattern.Stitches)
+                        {
+                            if (s.X == gx && s.Y == gy) { st = s; break; }
+                        }
+                    }
+
+                    if (st == null) continue;
+
+                    switch (view)
+                    {
+                        case PatternViewType.Colour:
+                            cell.Shading.Color = ToMigraColor(st.Colour);
+                            break;
+
+                        case PatternViewType.TrueSize:
+                            {
+                                var c = st.Colour;
+                                double k = Math.Clamp(0.25, 0.0, 0.5); // configurable lift
+                                byte r = (byte)Math.Round(c.R * (1 - k) + 255 * k);
+                                byte g = (byte)Math.Round(c.G * (1 - k) + 255 * k);
+                                byte b = (byte)Math.Round(c.B * (1 - k) + 255 * k);
+                                cell.Shading.Color = ToMigraColor(WColor.FromRgb(r, g, b));
+                                break;
+                            }
+
+                        case PatternViewType.Symbols:
+                            {
+                                if (!string.IsNullOrEmpty(st.DmcCode) &&
+                                pattern.SymbolMap.TryGetValue(st.DmcCode, out var sym))
+                                {
+                                    var p = cell.AddParagraph(sym.ToString());
+                                    double fontPt = Math.Clamp(cellPt * 0.8, 5.0, 10.0);
+                                    p.Format.Font.Size = fontPt;
+                                    p.Format.Alignment = MDO.ParagraphAlignment.Center;
+                                    cell.VerticalAlignment = MDO.Tables.VerticalAlignment.Center;
+                                    cell.Format.SpaceBefore = 0;
+                                    cell.Format.SpaceAfter = 0;
+                                    cell.Format.LeftIndent = 0;
+                                    cell.Format.RightIndent = 0;
+                                }
+                            }
+                            break;
+
+                        case PatternViewType.StitchTypes:
+                            {
+                                // Only mark cells with an actual stitch type
+                                if (st.Type != StitchType.None)
+                                {
+                                    // Map to clearer marks than first letters
+                                    string mark = st.Type switch
+                                    {
+                                        StitchType.None => "",  // empty
+                                        StitchType.Full => "\u2573",  // cross
+                                        StitchType.Half => "/",  // half
+                                        StitchType.Quarter => "¼",  // quarter
+                                        StitchType.ThreeQuarter => "¾",  // 3/4
+                                        StitchType.Backstitch => "—",  // line
+                                        StitchType.FrenchKnot => "●",  // knot
+                                        _ => ""
+                                    };
+
+                                    if (!string.IsNullOrEmpty(mark))
+                                    {
+                                        var p = cell.AddParagraph(mark);
+                                        double fontPt = Math.Clamp(cellPt * 0.75, 5.0, 10.0);
+                                        p.Format.Font.Size = fontPt;
+                                        p.Format.Alignment = MDO.ParagraphAlignment.Center;
+                                        cell.VerticalAlignment = MDO.Tables.VerticalAlignment.Center;
+                                        cell.Format.SpaceBefore = 0;
+                                        cell.Format.SpaceAfter = 0;
+                                        cell.Format.LeftIndent = 0;
+                                        cell.Format.RightIndent = 0;
+                                    }
+                                }
+                            }
+                            break;
+                            
+
+                    }
+                }
+            }
+
+            // Outer borders (respect ruler offsets)
+            if (table.Rows.Count > 0)
+            {
+                int firstContentRow = contentRowStart;
+                int lastContentRow = table.Rows.Count - 1;
+                int lastContentCol = xCount - 1 + colOffset;
+
+                // bottom line across content rows
+                table.Rows[lastContentRow].Borders.Bottom.Width = heavy;
+
+                // CLEAR bottom line in the bottom ruler cell
+                if (showRulers)
+                    table.Rows[lastContentRow].Cells[0].Borders.Bottom.Width = 0;
+
+                // top line on first content row cells
+                for (int rx = 0; rx < xCount; rx++)
+                    table.Rows[firstContentRow].Cells[rx + colOffset].Borders.Top.Width = (y0 % 10 == 0) ? heavy : thin;
+
+                // right edge
+                for (int ry = firstContentRow; ry <= lastContentRow; ry++)
+                    table.Rows[ry].Cells[lastContentCol].Borders.Right.Width = heavy;
+            }
+        }
+
 
         private static void AddLegendPage(MDO.Document doc, Pattern pattern)
         {
