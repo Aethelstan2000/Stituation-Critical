@@ -355,7 +355,15 @@ namespace StituationCritical
         private void OnMouseUp(object? sender, MouseButtonEventArgs e) { _mouseDown = false; ReleaseMouseCapture(); CommitStroke(); }
 
         private void ClearHistory() { _undo.Clear(); _redo.Clear(); _currentStroke = null; _touched = null; }
-        public void Undo() { if (_currentStroke != null) CommitStroke(); if (_undo.Count == 0) return; var act = _undo.Pop(); act.Revert(_pixels); _redo.Push(act); InvalidateVisual(); }
+        public void Undo() 
+        { 
+            if (_currentStroke != null) CommitStroke();
+            if (_undo.Count == 0) return;
+            var act = _undo.Pop();
+            act.Revert(_pixels);
+            _redo.Push(act);
+            InvalidateVisual();
+        }
         public void Redo() { if (_redo.Count == 0) return; var act = _redo.Pop(); act.Apply(_pixels); _undo.Push(act); InvalidateVisual(); }
 
         public WriteableBitmap ExportPixelLayer()

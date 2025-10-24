@@ -8,9 +8,15 @@
     <!-- Nice to have: make names consistent -->
     <AssemblyName>StituationCritical</AssemblyName>
     <RootNamespace>StituationCritical</RootNamespace>
+    <Platforms>AnyCPU;x64</Platforms>
+    <ApplicationIcon>Resources\CriticalStitch.ico</ApplicationIcon>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <NoWarn>1701;1702;8618</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <NoWarn>1701;1702;8618</NoWarn>
   </PropertyGroup>
 
@@ -34,10 +40,32 @@
     <AssemblyVersion>0.1.0.0</AssemblyVersion>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <NoWarn>1701;1702;8618</NoWarn>
+    <SelfContained>true</SelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <PublishSingleFile>true</PublishSingleFile>
+    <EnableCompressionInSingleFile>false</EnableCompressionInSingleFile>
+    <TrimUnusedDependencies>false</TrimUnusedDependencies>
+    <PublishReadyToRun>false</PublishReadyToRun>
+    <Company>Your Name or Org</Company>
+    <Product>Stituation Critical</Product>
+    <Description>Pixel-art &amp; cross-stitch editor using DMC colours</Description>
+    <Version>0.1.0</Version>
+    <FileVersion>0.1.0.0</FileVersion>
+    <AssemblyVersion>0.1.0.0</AssemblyVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="Resources\CriticalStitch.ico">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
   <!-- Ship palette CSV alongside the exe; switch to EmbeddedResource if you want it baked in -->
   <ItemGroup>
     <None Include="Resources\dmc_palette.csv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>
 
@@ -45,5 +73,15 @@
     <PackageReference Include="Extended.Wpf.Toolkit" Version="5.0.0" />
     <PackageReference Include="MigraDocCore.DocumentObjectModel" Version="1.3.67" />
     <PackageReference Include="MigraDocCore.Rendering" Version="1.3.67" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Resources\CriticalStitch.ico">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="bin\Release\net8.0-windows\publish\Resources\" />
   </ItemGroup>
 </Project>

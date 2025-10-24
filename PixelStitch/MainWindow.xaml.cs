@@ -928,8 +928,16 @@ namespace StituationCritical
         }
 
 
-        private void Undo_Executed(object sender, System.Windows.Input.ExecutedRoutedEventArgs e) => Canvas.Undo();
-        private void Redo_Executed(object sender, System.Windows.Input.ExecutedRoutedEventArgs e) => Canvas.Redo();
+        private void Undo_Executed(object sender, System.Windows.Input.ExecutedRoutedEventArgs e)
+        {
+            Canvas.Undo();
+            UpdateActivePaletteCounts();
+        }
+        private void Redo_Executed(object sender, System.Windows.Input.ExecutedRoutedEventArgs e)
+        {
+            Canvas.Redo();
+            UpdateActivePaletteCounts();
+        }
         private void Undo_CanExecute(object sender, System.Windows.Input.CanExecuteRoutedEventArgs e) => e.CanExecute = Canvas?.CanUndo ?? false;
         private void Redo_CanExecute(object sender, System.Windows.Input.CanExecuteRoutedEventArgs e) => e.CanExecute = Canvas?.CanRedo ?? false;
 

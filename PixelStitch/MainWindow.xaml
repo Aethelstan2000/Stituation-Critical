@@ -244,33 +244,34 @@
                             <ListView Name="ActiveList" Grid.Row="1" SelectionChanged="ActiveList_SelectionChanged" SelectionMode="Extended">
                                 <ListView.View>
                                     <GridView>
-                                        <GridViewColumn Header="" Width="36">
+                                        <!-- Lock column -->
+                                        <GridViewColumn Header="Lock" Width="36">
                                             <GridViewColumn.CellTemplate>
                                                 <DataTemplate>
                                                     <ToggleButton
-          IsChecked="{Binding IsLocked, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-          Width="24" Height="24"
-          ToolTip="{Binding IsLocked, Converter={StaticResource LockTipConverter}}"
-          Background="Transparent"
-          BorderThickness="0"
-          Padding="0">
+                                                        IsChecked="{Binding IsLocked, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                        Width="24" Height="24"
+                                                        ToolTip="{Binding IsLocked, Converter={StaticResource LockTipConverter}}"
+                                                        Background="Transparent"
+                                                        BorderThickness="0"
+                                                        Padding="0">
                                                         <TextBlock
-            FontFamily="Segoe MDL2 Assets"
-            FontSize="14"
-            VerticalAlignment="Center"
-            HorizontalAlignment="Center"
-            Text="{Binding IsLocked, Converter={StaticResource LockIconConverter}}"
-            Foreground="{Binding IsLocked, Converter={StaticResource LockColourConverter}}"/>
+                                                            FontFamily="Segoe MDL2 Assets"
+                                                            FontSize="14"
+                                                            VerticalAlignment="Center"
+                                                            HorizontalAlignment="Center"
+                                                            Text="{Binding IsLocked, Converter={StaticResource LockIconConverter}}"
+                                                             Foreground="{Binding IsLocked, Converter={StaticResource LockColourConverter}}"/>
                                                     </ToggleButton>
                                                 </DataTemplate>
                                             </GridViewColumn.CellTemplate>
                                         </GridViewColumn>
 
                                         <!-- Symbol dropdown -->
-                                        <GridViewColumn Header="Sym" Width="50">
+                                        <GridViewColumn Header="Sym" Width="52">
                                             <GridViewColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <ComboBox Width="44"
+                                                    <ComboBox Width="40"
                                                               ItemsSource="{Binding ElementName=Root, Path=SymbolChoices}"
                                                               SelectedItem="{Binding Symbol, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                               SelectionChanged="SymbolCombo_SelectionChanged"/>
@@ -278,10 +279,10 @@
                                             </GridViewColumn.CellTemplate>
                                         </GridViewColumn>
                                         <!-- Swatch -->
-                                        <GridViewColumn Header="Swatch" Width="60">
+                                        <GridViewColumn Header="Swatch" Width="42">
                                             <GridViewColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <Border Width="40" Height="20" BorderBrush="Black" BorderThickness="1">
+                                                    <Border Width="30" Height="20" BorderBrush="Black" BorderThickness="1">
                                                         <Border.Background>
                                                             <SolidColorBrush Color="{Binding Color}"/>
                                                         </Border.Background>
@@ -289,10 +290,10 @@
                                                 </DataTemplate>
                                             </GridViewColumn.CellTemplate>
                                         </GridViewColumn>
-                                        <GridViewColumn Header="Code" DisplayMemberBinding="{Binding Code}" Width="70"/>
+                                        <GridViewColumn Header="Code" DisplayMemberBinding="{Binding Code}" Width="40"/>
                                         <GridViewColumn Header="Name" DisplayMemberBinding="{Binding Name}" Width="180"/>
                                         <!-- Count column (requires DmcColor.Count int) -->
-                                        <GridViewColumn Header="Count" DisplayMemberBinding="{Binding Count}" Width="70"/>
+                                        <GridViewColumn Header="Count" DisplayMemberBinding="{Binding Count}" Width="50"/>
                                     </GridView>
                                 </ListView.View>
                             </ListView>
