@@ -1,1 +1,0 @@
-using System.Windows; namespace StituationCritical { public partial class App : Application { } }
